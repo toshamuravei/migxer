@@ -1,6 +1,6 @@
 import pytest
 
-from src.revision_storage import RevisionItem, RevisionStorage
+from src.revision_storage import RevisionStorage
 
 
 @pytest.fixture
@@ -9,19 +9,19 @@ def r_item_root():
 
 @pytest.fixture
 def r_item_A():
-    return {"revision": "A", "down_revision": "root", "original_filepath": "some/root"}
+    return {"revision": "A", "down_revision": "root", "original_filepath": "some/A"}
 
 @pytest.fixture
 def r_item_B():
-    return {"revision": "B", "down_revision": "A", "original_filepath": "some/root"}
+    return {"revision": "B", "down_revision": "A", "original_filepath": "some/B"}
 
 @pytest.fixture
 def r_item_C():
-    return {"revision": "C", "down_revision": "A", "original_filepath": "some/root"}
+    return {"revision": "C", "down_revision": "A", "original_filepath": "some/C"}
 
 @pytest.fixture
 def r_item_D():
-    return {"revision": "D", "down_revision": "B", "original_filepath": "some/root"}
+    return {"revision": "D", "down_revision": "B", "original_filepath": "some/D"}
 
 
 class TestRevisionStorage:
