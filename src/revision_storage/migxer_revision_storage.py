@@ -2,7 +2,7 @@ import ast
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from src.migxer_transformer import AssignmentsTransformer
 
@@ -147,7 +147,7 @@ class RevisionStorage(dict):
 
         return result_string
 
-    def _find_first_multiparent(self) -> List[str]:
+    def _find_first_multiparent(self) -> Union[str, None]:
         current_revision = self.root_revision
         while current_revision:
             item = self[current_revision]
@@ -160,12 +160,18 @@ class RevisionStorage(dict):
 
             current_revision = item.children[0]
 
-    def fix_revision_conflict(self, multiparent: str):
-        # TODO: actualy, infinite children from multiparent can be fixed 
-        # in such (date comparison) manner and all we need to do this - sort'em 
-        # and sequentially add this branches to eachother. Same as here, but 
+    FixWasMaden = bool
+
+    def fix_revision_conflict(self, multiparent: Optional[str] = None) -> FixWasMaden:
+        # TODO: actualy, infinite children from multiparent can be fixed
+        # in such (date comparison) manner and all we need to do this - sort'em
+        # and sequentially add this branches to eachother. Same as here, but
         # with sorting. This would be much more nice & abstract way of datetime-based
         # fixing.
+        multiparent = multiparent or self._find_first_multiparent()
+        if not multiparent:
+            return False
+
         left_child, right_child = self[multiparent].children
         elder_child, younger_child = None, None
         multiparent = self[multiparent]
@@ -186,6 +192,7 @@ class RevisionStorage(dict):
         last_descendant_of_elder_child = self._get_last_descendant(elder_child.revision)
         younger_child.parent_revision = last_descendant_of_elder_child.revision
         last_descendant_of_elder_child.children.append(younger_child.revision)
+        return True
 
     def _get_last_descendant(self, ancestor: str) -> RevisionItem:
         current = self[ancestor]
