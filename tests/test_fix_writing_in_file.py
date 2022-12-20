@@ -1,12 +1,12 @@
 from distutils.dir_util import copy_tree, remove_tree
 
-from src.migxer_fileparser import MigrationsParser
+from src.fileparser import MigrationsParser
 
 
 MIGRATION_FILES_DIR = "tests/migration_files_fixtures/"
 
 
-class TempDirectoryWithMigrations:
+class TempDirectory:
     EXISTING_MIGRATIONS_FIXTURES_DIR = MIGRATION_FILES_DIR
 
     def __init__(self, dir_name: str):
@@ -26,18 +26,18 @@ class TempDirectoryWithMigrations:
 class TestFixWriting:
 
     def test_migration_fix(self):
-        with TempDirectoryWithMigrations("tests/tmp_revisions_dir/") as temp_dir:
+        with TempDirectory("tests/tmp_revisions_dir/") as temp_dir:
             fileparser = MigrationsParser(_dir_name=temp_dir)
             storage = fileparser.revisions_storage
-            multiparent = storage._find_first_multiparent()
-            
+            multiparent = storage.find_first_multiparent()
+
             assert multiparent == "2d9f80797b0d"
 
-            multiparent = storage._find_first_multiparent()
+            multiparent = storage.find_first_multiparent()
             storage.fix_revision_conflict(multiparent)
             storage.wtite_fix_to_file()
 
             new_fileparser = MigrationsParser(_dir_name=temp_dir)
             storage = new_fileparser.revisions_storage
-            new_multiparent = storage._find_first_multiparent()
-            assert new_multiparent == None
+            new_multiparent = storage.find_first_multiparent()
+            assert new_multiparent is None

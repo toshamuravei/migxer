@@ -1,10 +1,7 @@
-import ast
-
-from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
-from src.migxer_transformer import AssignmentsTransformer
+from .revision_item import RevisionItem
 
 
 class ParentNotFoundException(Exception):
@@ -15,60 +12,9 @@ class FixIsImpossible(Exception):
     pass
 
 
-@dataclass
-class RevisionItem:
-    revision: str
-    original_filepath: str
-    parent_revision: Optional[str] = None
-    revision_date: Optional[datetime] = None
-    children: Optional[List[str]] = field(default_factory=list)
-
-    def __str__(self) -> str:
-        if self.revision_date:
-            date = self.revision_date.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            date = "date is unknown"
-        return f"{self.revision} ({date})"
-
-    @property
-    def last_descendant(self) -> 'RevisionItem':
-        raise NotImplementedError()
-
-    @property
-    def assignments_ids_values_map(self) -> Dict[str, str]:
-        return {
-            "revision": self.revision,
-            "down_revision": self.parent_revision
-        }
-
-    def __eq__(self, other):
-        if not hasattr(other, "revision_date"):
-            return NotImplemented
-        return self.revision_date == other.revision_date
-
-    def __lt__(self, other):
-        if not hasattr(other, "revision_date"):
-            return NotImplemented
-        return self.revision_date < other.revision_date
-
-    def serialize_to_revision_file(self, transformer: ast.NodeTransformer = AssignmentsTransformer) -> str:
-        parsed_tree = None
-        transformer = AssignmentsTransformer(self.assignments_ids_values_map)
-        with open(self.original_filepath, 'r') as revision_file:
-            raw_file = revision_file.read()
-            parsed_tree = ast.parse(raw_file)
-        new_tree = transformer.visit(parsed_tree)
-        new_source_string = ast.unparse(new_tree)
-
-        with open(self.original_filepath, 'w') as revision_file:
-            revision_file.write(new_source_string)
-
-        return self.original_filepath
-        
-
 class RevisionStorage(dict):
     def add(
-        self, rev_item: Optional[RevisionItem] = None, 
+        self, rev_item: Optional[RevisionItem] = None,
         revision: Optional[str] = None, down_revision: Optional[str] = None,
         revision_date: Optional[datetime] = None,
         original_filepath: Optional[str] = None
@@ -107,13 +53,13 @@ class RevisionStorage(dict):
             if orphan_item.parent_revision == new_parent.revision:
                 new_parent.children.append(orphan)
                 _adopted_idxs.append(orphan_idx)
-        
+
         for child_idx in _adopted_idxs:
             del self.orphans[child_idx]
 
     def get_conflict_place_str(self, multiparent: Optional[str] = None) -> str:
         if not multiparent:
-            multiparent = self._find_first_multiparent()
+            multiparent = self.find_first_multiparent()
 
         result_string = ""
         upper_child, lower_child = self[multiparent].children
@@ -122,11 +68,13 @@ class RevisionStorage(dict):
 
         PREFIX_STR = "<...> - "
         UPPER_BRANCH_STR = " / "
-        LOWER_BRANCH_STR = " \ "
+        LOWER_BRANCH_STR = " \ " # noqa
         NEWLINE = "\n"
         SPACE = " "
 
-        upper_row = SPACE * (len(PREFIX_STR) + len(UPPER_BRANCH_STR) + len(multiparent))
+        upper_row = SPACE * (
+            len(PREFIX_STR) + len(UPPER_BRANCH_STR) + len(multiparent)
+        )
         upper_row += upper_child
         result_string += (upper_row + NEWLINE)
 
@@ -141,13 +89,15 @@ class RevisionStorage(dict):
         lower_delimiter_row += LOWER_BRANCH_STR
         result_string += (lower_delimiter_row + NEWLINE)
 
-        lower_row = SPACE * (len(PREFIX_STR) + len(LOWER_BRANCH_STR) + len(multiparent))
+        lower_row = SPACE * (
+            len(PREFIX_STR) + len(LOWER_BRANCH_STR) + len(multiparent)
+        )
         lower_row += lower_child
         result_string += (lower_row + NEWLINE)
 
         return result_string
 
-    def _find_first_multiparent(self) -> Union[str, None]:
+    def find_first_multiparent(self) -> Union[str, None]:
         current_revision = self.root_revision
         while current_revision:
             item = self[current_revision]
@@ -162,13 +112,16 @@ class RevisionStorage(dict):
 
     FixWasMaden = bool
 
-    def fix_revision_conflict(self, multiparent: Optional[str] = None) -> FixWasMaden:
+    def fix_revision_conflict(
+        self, multiparent: Optional[str] = None
+    ) -> FixWasMaden:
         # TODO: actualy, infinite children from multiparent can be fixed
         # in such (date comparison) manner and all we need to do this - sort'em
         # and sequentially add this branches to eachother. Same as here, but
-        # with sorting. This would be much more nice & abstract way of datetime-based
-        # fixing.
-        multiparent = multiparent or self._find_first_multiparent()
+        # with sorting. This would be much more nice & abstract way of
+        # datetime-based fixing.
+
+        multiparent = multiparent or self.find_first_multiparent()
         if not multiparent:
             return False
 
@@ -185,11 +138,13 @@ class RevisionStorage(dict):
         else:
             elder_child, younger_child = left_child, right_child
             del multiparent.children[1]
-        
+
         elder_child, younger_child = self[elder_child], self[younger_child]
         self.revision_to_rewrite = younger_child
 
-        last_descendant_of_elder_child = self._get_last_descendant(elder_child.revision)
+        last_descendant_of_elder_child = self._get_last_descendant(
+            elder_child.revision
+        )
         younger_child.parent_revision = last_descendant_of_elder_child.revision
         last_descendant_of_elder_child.children.append(younger_child.revision)
         return True
@@ -209,7 +164,9 @@ class RevisionStorage(dict):
         return revisions
 
     def wtite_fix_to_file(self):
-        revision_to_rewrite: Optional[RevisionItem] = getattr(self, "revision_to_rewrite")
+        revision_to_rewrite: Optional[RevisionItem] = getattr(
+            self, "revision_to_rewrite"
+        )
         if not revision_to_rewrite:
             return
 
