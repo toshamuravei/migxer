@@ -1,8 +1,6 @@
 import ast
 import os
-import tempfile
 
-from dataclasses import dataclass
 from typing import List, Optional
 
 import pytest

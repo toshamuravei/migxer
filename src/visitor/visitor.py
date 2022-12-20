@@ -1,7 +1,6 @@
 import ast
 
-from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 
 class MigxerVisitor(ast.NodeVisitor):
